@@ -1,32 +1,36 @@
-name: CI - Build & Test
+name: CI - Engineer
 
 on:
- workflow_dispatch
- 
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Vérifier les fichiers
+      - name: Vérifier les fichiers essentiels
         run: |
-          test -f Dockerfile && echo "Dockerfile OK"
-          test -f nginx.conf && echo "nginx.conf OK"
-          test -f index.html && echo "index.html OK"
+          for f in Dockerfile nginx.conf index.html; do
+            test -f $f || (echo "❌ $f manquant" && exit 1)
+          done
 
-      - name: Build image Docker
+      - name: Construire l'image Docker
         run: docker build -t nginx-ci-demo .
 
-      - name: Tester la config Nginx
+      - name: Tester la configuration Nginx
         run: docker run --rm nginx-ci-demo nginx -t
 
-      - name: Lancer le conteneur
+      - name: Lancer Nginx
         run: |
           docker run -d --name nginx-test -p 8080:80 nginx-ci-demo
           sleep 2
 
-      - name: Tester le service
-        run: curl --fail http://localhost:8080/ || exit 1
+      - name: Tester la page d'accueil
+        run: curl --fail http://localhost:8080/ | grep -q "Déploiement automatisé"
+
+      - name: Tester l'endpoint /health
+        run: curl --fail http://localhost:8080/health | grep -q "healthy"
